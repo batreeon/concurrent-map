@@ -42,6 +42,7 @@ func TestInsertAbsent(t *testing.T) {
 	monkey := Animal{"monkey"}
 
 	m.SetIfAbsent("elephant", elephant)
+	// 仅插入，不修改
 	if ok := m.SetIfAbsent("elephant", monkey); ok {
 		t.Error("map set a new value even the entry is already present")
 	}
@@ -57,6 +58,7 @@ func TestGet(t *testing.T) {
 		t.Error("ok should be false when item is missing from map.")
 	}
 
+	// 这个如果是我，我写不出来，我对不存在的key的map返回值还不清晰
 	if (val != Animal{}) {
 		t.Error("Missing values should return as null.")
 	}
@@ -421,6 +423,7 @@ func TestConcurrent(t *testing.T) {
 func TestJsonMarshal(t *testing.T) {
 	SHARD_COUNT = 2
 	defer func() {
+		// SHARD_COUNT 还原回去
 		SHARD_COUNT = 32
 	}()
 	expected := "{\"a\":1,\"b\":2}"
@@ -487,17 +490,19 @@ func TestUpsert(t *testing.T) {
 
 	cb := func(exists bool, valueInMap Animal, newValue Animal) Animal {
 		if !exists {
+			// 不存在，则新增
 			return newValue
 		}
+		// 存在，则修改
 		valueInMap.name += newValue.name
 		return valueInMap
 	}
 
 	m := New[Animal]()
 	m.Set("marine", dolphin)
-	m.Upsert("marine", whale, cb)
-	m.Upsert("predator", tiger, cb)
-	m.Upsert("predator", lion, cb)
+	m.Upsert("marine", whale, cb) //"marine":Animal{"dolphinwhale"}
+	m.Upsert("predator", tiger, cb) //"predator":Animal{"tiger"}
+	m.Upsert("predator", lion, cb)	//"predator":Animal{"tigerlion"}
 
 	if m.Count() != 2 {
 		t.Error("map should contain exactly two elements.")

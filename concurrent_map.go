@@ -9,6 +9,7 @@ var SHARD_COUNT = 32
 
 // A "thread" safe map of type string:Anything.
 // To avoid lock bottlenecks this map is dived to several (SHARD_COUNT) map shards.
+// 定义了一个泛型类型ConcurrentMap
 type ConcurrentMap[V any] []*ConcurrentMapShared[V]
 
 // A "thread" safe string to anything map.
@@ -31,6 +32,7 @@ func (m ConcurrentMap[V]) GetShard(key string) *ConcurrentMapShared[V] {
 	return m[uint(fnv32(key))%uint(SHARD_COUNT)]
 }
 
+// 批量写入
 func (m ConcurrentMap[V]) MSet(data map[string]V) {
 	for key, value := range data {
 		shard := m.GetShard(key)
@@ -40,6 +42,7 @@ func (m ConcurrentMap[V]) MSet(data map[string]V) {
 	}
 }
 
+// 写入
 // Sets the given value under the specified key.
 func (m ConcurrentMap[V]) Set(key string, value V) {
 	// Get map shard.
@@ -72,6 +75,7 @@ func (m ConcurrentMap[V]) SetIfAbsent(key string, value V) bool {
 	shard := m.GetShard(key)
 	shard.Lock()
 	_, ok := shard.items[key]
+	// 指定键不存在则写，否则什么也不做
 	if !ok {
 		shard.items[key] = value
 	}
@@ -79,6 +83,7 @@ func (m ConcurrentMap[V]) SetIfAbsent(key string, value V) bool {
 	return !ok
 }
 
+// 读
 // Get retrieves an element from map under given key.
 func (m ConcurrentMap[V]) Get(key string) (V, bool) {
 	// Get shard
@@ -90,6 +95,7 @@ func (m ConcurrentMap[V]) Get(key string) (V, bool) {
 	return val, ok
 }
 
+// 统计元素个数
 // Count returns the number of elements within the map.
 func (m ConcurrentMap[V]) Count() int {
 	count := 0
@@ -126,6 +132,7 @@ func (m ConcurrentMap[V]) Remove(key string) {
 // If returns true, the element will be removed from the map
 type RemoveCb[V any] func(key string, v V, exists bool) bool
 
+// 若能是cb函数返回true，则删除key
 // RemoveCb locks the shard containing the key, retrieves its current value and calls the callback with those params
 // If callback returns true and element exists, it will remove it from the map
 // Returns the value returned by the callback (even if element was not present in the map)
@@ -164,6 +171,8 @@ type Tuple[V any] struct {
 	Val V
 }
 
+// Iter和IterBuffered的区别仅仅在于ch，一个有缓冲，一个没缓冲
+// 把所有的key-value对Tuple存放到ch中
 // Iter returns an iterator which could be used in a for range loop.
 //
 // Deprecated: using IterBuffered() will get a better performence
@@ -251,6 +260,7 @@ func (m ConcurrentMap[V]) Items() map[string]V {
 	return tmp
 }
 
+// 遍历每一个键值对，对其进行fn操作
 // Iterator callbacalled for every key,value found in
 // maps. RLock is held for all calls for a given shard
 // therefore callback sess consistent view of a shard,
